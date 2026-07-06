@@ -49,6 +49,20 @@ jobs:
           cp -r $ANDROID_HOME/platforms/android-34/* app/src/main/assets/android-sdk/platforms/android-34/
           echo "SDK size: $(du -sh app/src/main/assets/android-sdk | cut -f1)"
 
+      - name: Replace build-tools with ARM64 versions
+        run: |
+          # Download ARM64 aapt2 from Termux
+          curl -L --retry 5 --retry-delay 15 \
+            "https://packages.termux.dev/apt/termux-main/pool/main/a/aapt2/aapt2_16.0.0.4-1_aarch64.deb" \
+            -o /tmp/aapt2.deb
+          dpkg-deb -x /tmp/aapt2.deb /tmp/aapt2-extracted
+          cp /tmp/aapt2-extracted/data/data/com.termux/files/usr/bin/aapt2 \
+            app/src/main/assets/android-sdk/build-tools/34.0.0/aapt2
+          chmod +x app/src/main/assets/android-sdk/build-tools/34.0.0/aapt2
+          rm -rf /tmp/aapt2.deb /tmp/aapt2-extracted
+          echo "Replaced aapt2 with ARM64 version"
+          file app/src/main/assets/android-sdk/build-tools/34.0.0/aapt2
+
       - name: Build debug APK
         run: ./gradlew assembleDebug --stacktrace
 
