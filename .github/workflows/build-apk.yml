@@ -78,19 +78,17 @@ jobs:
             rm -f "app/src/main/assets/openjdk/bin/$tool"
           done
 
-      - name: Download git (ARM64, static)
+      - name: Download git (ARM64)
         run: |
           mkdir -p app/src/main/assets/git
           curl -L --retry 5 --retry-delay 15 \
             "https://mirrors.tuna.tsinghua.edu.cn/termux/apt/termux-main/pool/main/g/git/git_2.52.0_aarch64.deb" \
             -o /tmp/git.deb
           dpkg-deb -x /tmp/git.deb /tmp/git-extracted
-          # Copy git binary and essential helpers
           for f in git git-receive-pack git-upload-pack git-upload-archive; do
             find /tmp/git-extracted -name "$f" ! -type d -exec cp {} app/src/main/assets/git/ \;
           done
           chmod -R +x app/src/main/assets/git/
-          # Strip non-essential
           rm -rf app/src/main/assets/git/libexec 2>/dev/null || true
           rm -rf /tmp/git.deb /tmp/git-extracted
 
@@ -131,8 +129,23 @@ jobs:
           SETUP
           chmod +x app/src/main/assets/gradle-config/setup-gradle-mirror.sh
 
-          cat > app/src/main/assets/gradle-config/build.sh << 'BUILD'
+          cat > app/src/main/assets/gradle-config/run.sh << 'RUN'
           #!/system/bin/sh
+          if [ -z "$1" ]; then
+            echo "Usage: sh run.sh <github-url>"
+            exit 1
+          fi
+          echo ">>> Cloning $1..."
+          git clone "$1" project
+          if [ $? -ne 0 ]; then
+            echo ">>> Clone failed."
+            exit 1
+          fi
+          cd project
+          # Apply Gradle mirror fix
+          for wp in $(find . -name "gradle-wrapper.properties" 2>/dev/null); do
+            sed -i 's|https\\\{0,1\}://services\.gradle\.org/distributions|https\\://mirrors.tuna.tsinghua.edu.cn/gradle/gradle-distributions|g' "$wp"
+          done
           echo ">>> Building..."
           ./gradlew assembleDebug
           if [ $? -eq 0 ]; then
@@ -140,14 +153,14 @@ jobs:
             if [ -f "$APK" ]; then
               echo ">>> Installing..."
               pm install -r "$APK" 2>/dev/null || true
-              echo ">>> Done."
+              echo ">>> Done!"
             fi
           else
-            echo ">>> Build failed. See errors above."
+            echo ">>> Build failed."
             exit 1
           fi
-          BUILD
-          chmod +x app/src/main/assets/gradle-config/build.sh
+          RUN
+          chmod +x app/src/main/assets/gradle-config/run.sh
 
       - name: Show asset sizes
         run: |
