@@ -28,7 +28,7 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Download code-server (ARM64)
+      - name: Download and strip code-server (ARM64)
         run: |
           mkdir -p app/src/main/assets/code-server
           curl -L --retry 3 --retry-delay 10 \
@@ -36,7 +36,13 @@ jobs:
             -o /tmp/code-server.tar.gz
           tar -xzf /tmp/code-server.tar.gz -C app/src/main/assets/code-server --strip-components=1
           rm /tmp/code-server.tar.gz
-          rm -rf app/src/main/assets/code-server/node_modules app/src/main/assets/code-server/lib/node
+          rm -rf app/src/main/assets/code-server/node_modules
+          rm -rf app/src/main/assets/code-server/lib/node
+          rm -rf app/src/main/assets/code-server/lib/vscode/extensions/ms-python.python-*
+          rm -rf app/src/main/assets/code-server/lib/vscode/extensions/ms-vscode.cpptools-*
+          rm -rf app/src/main/assets/code-server/lib/vscode/extensions/ms-dotnettools.csharp-*
+          rm -rf app/src/main/assets/code-server/lib/vscode/extensions/golang.go-*
+          rm -rf app/src/main/assets/code-server/lib/vscode/extensions/rust-lang.rust-analyzer-*
           find app/src/main/assets/code-server -name "*.map" -delete
           find app/src/main/assets/code-server -name "*.ts" -delete
 
@@ -46,6 +52,10 @@ jobs:
           cp -r $ANDROID_HOME/build-tools/34.0.0/* app/src/main/assets/android-sdk/build-tools/34.0.0/
           mkdir -p app/src/main/assets/android-sdk/platforms/android-34
           cp -r $ANDROID_HOME/platforms/android-34/* app/src/main/assets/android-sdk/platforms/android-34/
+          find app/src/main/assets/android-sdk/platforms/android-34/data/res -name "*.png" ! -path "*/drawable*" ! -path "*/mipmap*" -delete 2>/dev/null || true
+          rm -rf app/src/main/assets/android-sdk/platforms/android-34/data/fonts 2>/dev/null || true
+          rm -rf app/src/main/assets/android-sdk/platforms/android-34/templates 2>/dev/null || true
+          rm -rf app/src/main/assets/android-sdk/platforms/android-34/skins 2>/dev/null || true
 
       - name: Replace build-tools with ARM64 versions
         run: |
@@ -57,7 +67,7 @@ jobs:
           chmod -R +x app/src/main/assets/android-sdk/build-tools/34.0.0/
           rm -rf /tmp/arm64-tools.zip /tmp/arm64-tools
 
-      - name: Download and strip OpenJDK 17 (ARM64)
+      - name: Download and aggressively strip OpenJDK 17 (ARM64)
         run: |
           mkdir -p app/src/main/assets/openjdk
           curl -L --retry 5 --retry-delay 30 \
@@ -75,36 +85,58 @@ jobs:
           rm -f app/src/main/assets/openjdk/lib/src.zip
           rm -rf app/src/main/assets/openjdk/jmc
           rm -rf app/src/main/assets/openjdk/legal
+          for tool in jshell jlink jdeps jstat jmap jstack jcmd jpackage javadoc jarsigner jdeprscan jfr jhsdb jps jconsole jwebserver keytool rmiregistry serialver; do
+            rm -f app/src/main/assets/openjdk/bin/$tool
+          done
 
-      - name: Generate Gradle mirror config
+      - name: Generate Gradle config (Maven mirrors + wrapper fix)
         run: |
           mkdir -p app/src/main/assets/gradle-config
-          # init.gradle - mirrors Maven repos to Aliyun
           cat > app/src/main/assets/gradle-config/init.gradle << 'INIT'
           allprojects {
-              repositories {
-                  all { ArtifactRepository repo ->
-                      if (repo instanceof MavenArtifactRepository) {
-                          def url = repo.url.toString()
-                          if (url.startsWith('https://dl.google.com/dl/android/maven2') ||
-                              url.startsWith('https://maven.google.com')) {
-                              remove repo
-                              maven { url 'https://maven.aliyun.com/repository/google' }
-                          }
-                          if (url.startsWith('https://repo1.maven.org/maven2') ||
-                              url.startsWith('https://repo.maven.apache.org/maven2')) {
-                              remove repo
-                              maven { url 'https://maven.aliyun.com/repository/public' }
-                          }
-                          if (url.startsWith('https://jcenter.bintray.com')) {
-                              remove repo
-                              maven { url 'https://maven.aliyun.com/repository/jcenter' }
-                          }
-                      }
+              buildscript {
+                  repositories {
+                      maven { url 'https://maven.aliyun.com/repository/public' }
+                      maven { url 'https://maven.aliyun.com/repository/google' }
+                      maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
                   }
+              }
+              repositories {
+                  maven { url 'https://maven.aliyun.com/repository/public' }
+                  maven { url 'https://maven.aliyun.com/repository/google' }
+                  maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
               }
           }
           INIT
+          cat > app/src/main/assets/gradle-config/setup-gradle-mirror.sh << 'SETUP'
+          #!/system/bin/sh
+          GRADLE_USER_HOME="${GRADLE_USER_HOME:-$HOME/.gradle}"
+          mkdir -p "$GRADLE_USER_HOME"
+          SRC_INIT="$(dirname "$0")/init.gradle"
+          if [ -f "$SRC_INIT" ]; then
+            cp "$SRC_INIT" "$GRADLE_USER_HOME/init.gradle"
+            echo "Gradle Maven mirrors configured (Aliyun)"
+          fi
+          for wrapper_props in $(find /data -name "gradle-wrapper.properties" 2>/dev/null); do
+            if grep -q "services.gradle.org" "$wrapper_props" 2>/dev/null; then
+              sed -i 's|https\\\{0,1\}://services\.gradle\.org/distributions|https\\://mirrors.tuna.tsinghua.edu.cn/gradle/gradle-distributions|g' "$wrapper_props"
+              echo "Fixed Gradle wrapper: $wrapper_props"
+            fi
+          done
+          echo "Done. All downloads now use Chinese mirrors."
+          SETUP
+          chmod +x app/src/main/assets/gradle-config/setup-gradle-mirror.sh
+
+      - name: Show asset sizes
+        run: |
+          echo "=== Asset sizes ==="
+          du -sh app/src/main/assets/code-server
+          du -sh app/src/main/assets/openjdk
+          du -sh app/src/main/assets/android-sdk/build-tools
+          du -sh app/src/main/assets/android-sdk/platforms
+          du -sh app/src/main/assets/gradle-config
+          echo "=== Total assets ==="
+          du -sh app/src/main/assets/
 
       - name: Build debug APK
         run: ./gradlew assembleDebug --stacktrace
