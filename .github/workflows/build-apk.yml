@@ -51,17 +51,16 @@ jobs:
 
       - name: Replace build-tools with ARM64 versions
         run: |
-          # Download ARM64 aapt2 from Termux
           curl -L --retry 5 --retry-delay 15 \
-            "https://packages.termux.dev/apt/termux-main/pool/main/a/aapt2/aapt2_16.0.0.4-1_aarch64.deb" \
-            -o /tmp/aapt2.deb
-          dpkg-deb -x /tmp/aapt2.deb /tmp/aapt2-extracted
-          cp /tmp/aapt2-extracted/data/data/com.termux/files/usr/bin/aapt2 \
-            app/src/main/assets/android-sdk/build-tools/34.0.0/aapt2
-          chmod +x app/src/main/assets/android-sdk/build-tools/34.0.0/aapt2
-          rm -rf /tmp/aapt2.deb /tmp/aapt2-extracted
-          echo "Replaced aapt2 with ARM64 version"
+            "https://github.com/lzhiyong/android-sdk-tools/releases/download/34.0.3/android-sdk-tools-static-aarch64.zip" \
+            -o /tmp/arm64-tools.zip
+          unzip -qo /tmp/arm64-tools.zip -d /tmp/arm64-tools
+          cp -rf /tmp/arm64-tools/build-tools/* app/src/main/assets/android-sdk/build-tools/34.0.0/
+          chmod -R +x app/src/main/assets/android-sdk/build-tools/34.0.0/
+          rm -rf /tmp/arm64-tools.zip /tmp/arm64-tools
+          echo "Replaced build-tools with ARM64 versions:"
           file app/src/main/assets/android-sdk/build-tools/34.0.0/aapt2
+          file app/src/main/assets/android-sdk/build-tools/34.0.0/zipalign
 
       - name: Build debug APK
         run: ./gradlew assembleDebug --stacktrace
