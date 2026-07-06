@@ -32,7 +32,7 @@ class CodeServerManager(private val context: Context) {
     private val serverDir: File
         get() = File(context.filesDir, "code-server")
 
-    private val nodeBin: File get() = File(serverDir, "bin/node")
+    private val nodeBin: File get() = File(serverDir, "lib/node")
     private val codeServerJs: File get() = File(serverDir, "out/node/entry.js")
 
     /**
