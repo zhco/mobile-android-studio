@@ -40,7 +40,36 @@ class BuildManager(private val context: Context) {
         }
     }
 
+    // Manifest file that lists all asset files (one per line)
+    private val ASSETS_MANIFEST = "asset_manifest.txt"
+
+    private fun loadManifest(): List<String> {
+        return try {
+            context.assets.open(ASSETS_MANIFEST).bufferedReader().use { it.readLines() }
+        } catch (e: Exception) {
+            Log.w(TAG, "No asset manifest found, falling back to directory listing")
+            emptyList()
+        }
+    }
+
     private fun extractAssetDir(assetPath: String, destDir: File) {
+        // Use manifest if available (works with compressed assets)
+        val manifest = loadManifest()
+        if (manifest.isNotEmpty()) {
+            val prefix = "$assetPath/"
+            val files = manifest.filter { it.startsWith(prefix) }
+            for (entry in files) {
+                val relPath = entry.removePrefix(prefix)
+                val dest = File(destDir, relPath)
+                dest.parentFile?.mkdirs()
+                context.assets.open(entry).use { input ->
+                    dest.outputStream().use { output -> input.copyTo(output) }
+                }
+            }
+            return
+        }
+
+        // Fallback: directory listing (only works with uncompressed assets)
         val children = context.assets.list(assetPath) ?: return
         for (child in children) {
             val childPath = "$assetPath/$child"
