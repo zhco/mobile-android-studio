@@ -163,6 +163,12 @@ jobs:
           RUN
           chmod +x app/src/main/assets/gradle-config/run.sh
 
+- name: Generate asset manifest
+        run: |
+          cd app/src/main/assets
+          find . -type f | sed 's|^\./||' | sort > asset_manifest.txt
+          echo "Manifest entries: $(wc -l < asset_manifest.txt)"
+
       - name: Show asset sizes
         run: |
           echo "=== Asset sizes ==="
