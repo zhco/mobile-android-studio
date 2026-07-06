@@ -57,22 +57,26 @@ jobs:
           chmod -R +x app/src/main/assets/android-sdk/build-tools/34.0.0/
           rm -rf /tmp/arm64-tools.zip /tmp/arm64-tools
 
-      - name: Download OpenJDK 17 (ARM64) for Termux
+      - name: Download and strip OpenJDK 17 (ARM64)
         run: |
           mkdir -p app/src/main/assets/openjdk
           curl -L --retry 5 --retry-delay 30 \
             "https://mirrors.tuna.tsinghua.edu.cn/termux/apt/termux-main/pool/main/o/openjdk-17/openjdk-17_17.0.19_aarch64.deb" \
             -o /tmp/jdk.deb
           dpkg-deb -x /tmp/jdk.deb /tmp/jdk-extracted
-          # Find where java is and copy from the correct root
-          JDK_ROOT=$(dirname $(find /tmp/jdk-extracted -name java -type f | head -1))
-          JDK_ROOT=$(dirname "$JDK_ROOT")
-          echo "JDK root: $JDK_ROOT"
-          ls "$JDK_ROOT"
+          JDK_ROOT=$(dirname $(dirname $(find /tmp/jdk-extracted -name java ! -type d | head -1)))
           cp -r "$JDK_ROOT"/* app/src/main/assets/openjdk/
           rm -rf /tmp/jdk.deb /tmp/jdk-extracted
-          echo "JDK size: $(du -sh app/src/main/assets/openjdk | cut -f1)"
-          file app/src/main/assets/openjdk/bin/java
+          # Strip non-essential files
+          rm -rf app/src/main/assets/openjdk/jmods
+          rm -rf app/src/main/assets/openjdk/demo
+          rm -rf app/src/main/assets/openjdk/sample
+          rm -rf app/src/main/assets/openjdk/man
+          rm -rf app/src/main/assets/openjdk/include
+          rm -f app/src/main/assets/openjdk/lib/src.zip
+          rm -rf app/src/main/assets/openjdk/jmc
+          rm -rf app/src/main/assets/openjdk/legal
+          echo "JDK stripped size: $(du -sh app/src/main/assets/openjdk | cut -f1)"
 
       - name: Build debug APK
         run: ./gradlew assembleDebug --stacktrace
@@ -83,10 +87,3 @@ jobs:
           name: mobile-as-debug
           path: app/build/outputs/apk/debug/app-debug.apk
           retention-days: 7
-
-      - name: Create Release
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: app/build/outputs/apk/debug/app-debug.apk
-          generate_release_notes: true
