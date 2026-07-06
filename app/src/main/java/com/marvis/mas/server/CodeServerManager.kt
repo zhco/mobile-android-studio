@@ -32,13 +32,16 @@ class CodeServerManager(private val context: Context) {
     private val serverDir: File
         get() = File(context.filesDir, "code-server")
 
+    /** Extracted node binary (raw location) */
     private val nodeBin: File get() = File(serverDir, "lib/node")
+    /** Execution-capable copy in native library dir (bypasses SELinux noexec) */
+    private val nodeExe: File get() = File(context.applicationInfo.nativeLibraryDir, "libnode_exec.so")
     private val codeServerJs: File get() = File(serverDir, "out/node/entry.js")
 
     /**
      * Returns true if assets have already been extracted.
      */
-    fun isExtracted(): Boolean = codeServerJs.exists() && nodeBin.exists()
+    fun isExtracted(): Boolean = codeServerJs.exists() && nodeExe.exists()
 
     /**
      * Extract code-server assets from APK to private storage.
@@ -71,12 +74,9 @@ class CodeServerManager(private val context: Context) {
                 ))
             }
 
-            // Make node binary executable (use shell chmod, more reliable)
-            try {
-                Runtime.getRuntime().exec(arrayOf("chmod", "+x", nodeBin.absolutePath)).waitFor()
-            } catch (_: Exception) {
-                nodeBin.setExecutable(true, false)
-            }
+            // Copy node to native library dir where SELinux allows execution
+            nodeBin.copyTo(nodeExe, overwrite = true)
+            nodeExe.setExecutable(true, false)
             onProgress("Assets extracted to ${serverDir.absolutePath}")
             Result.success(Unit)
         } catch (e: Exception) {
@@ -175,13 +175,13 @@ class CodeServerManager(private val context: Context) {
             val env = mapOf(
                 "HOME" to context.filesDir.absolutePath,
                 "USER" to "mas",
-                "PATH" to "${nodeBin.parent}:${System.getenv("PATH")}"
+                "PATH" to "${nodeExe.parent}:${System.getenv("PATH")}"
             )
 
             processRef = ProcessBuilder()
                 .directory(serverDir)
                 .command(
-                    nodeBin.absolutePath,
+                    nodeExe.absolutePath,
                     codeServerJs.absolutePath,
                     "--bind-addr", "$BIND_ADDR:$PORT",
                     "--auth", "none",
