@@ -86,7 +86,7 @@ class MainActivity : AppCompatActivity() {
                     request: WebResourceRequest?,
                     error: WebResourceError?
                 ) {
-                    if (request?.isForMainMenu == true) {
+                    if (request?.isForMainFrame == true) {
                         binding.progressBar.visibility = View.GONE
                         binding.errorText.visibility = View.VISIBLE
                         binding.errorText.text = "Failed to load: ${error?.description}"
