@@ -32,9 +32,7 @@ class CodeServerManager(private val context: Context) {
     private val serverDir: File
         get() = File(context.filesDir, "code-server")
 
-    /** Extracted node binary (raw location) */
-    private val nodeBin: File get() = File(serverDir, "lib/node")
-    /** Execution-capable copy in native library dir (bypasses SELinux noexec) */
+    /** Node binary from jniLibs (system-extracted, SELinux-safe) */
     private val nodeExe: File get() = File(context.applicationInfo.nativeLibraryDir, "libnode_exec.so")
     private val codeServerJs: File get() = File(serverDir, "out/node/entry.js")
 
@@ -74,9 +72,7 @@ class CodeServerManager(private val context: Context) {
                 ))
             }
 
-            // Copy node to native library dir where SELinux allows execution
-            nodeBin.copyTo(nodeExe, overwrite = true)
-            nodeExe.setExecutable(true, false)
+            // Node binary is already in nativeLibraryDir (installed via jniLibs)
             onProgress("Assets extracted to ${serverDir.absolutePath}")
             Result.success(Unit)
         } catch (e: Exception) {
