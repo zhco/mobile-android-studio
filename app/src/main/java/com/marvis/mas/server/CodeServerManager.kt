@@ -73,11 +73,54 @@ class CodeServerManager(private val context: Context) {
         }
     }
 
+// Manifest file that lists all files under assets/code-server/
+    // Generated at build time by scripts/generate_asset_manifest.sh
+    private val ASSETS_MANIFEST = "asset_manifest.txt"
+
+    private fun loadManifest(): List<String> {
+        return try {
+            context.assets.open(ASSETS_MANIFEST).bufferedReader().use { it.readLines() }
+        } catch (e: Exception) {
+            Log.w(TAG, "No asset manifest found, falling back to directory listing")
+            emptyList()
+        }
+    }
+
+    /**
+     * Copy a single asset file to the destination.
+     * Uses context.assets.open() which always works regardless of compression.
+     */
+    private fun copyAssetFile(assetPath: String, dest: File) {
+        dest.parentFile?.mkdirs()
+        context.assets.open(assetPath).use { input ->
+            dest.outputStream().use { output ->
+                input.copyTo(output)
+            }
+        }
+    }
+
     private fun extractRecursive(
         assetPath: String,
         destDir: File,
         onProgress: (String) -> Unit = {}
     ) {
+        // Use manifest if available (faster & works with compressed assets)
+        val manifest = loadManifest()
+        if (manifest.isNotEmpty()) {
+            val prefix = "$assetPath/"
+            val files = manifest.filter { it.startsWith(prefix) }
+            var count = 0
+            for (entry in files) {
+                val relPath = entry.removePrefix(prefix)
+                copyAssetFile(entry, File(destDir, relPath))
+                count++
+                if (count % 100 == 0) onProgress("Extracted $count files...")
+            }
+            onProgress("Extracted $count files (manifest)")
+            return
+        }
+
+        // Fallback: directory listing (only works with uncompressed assets)
         val children = context.assets.list(assetPath) ?: return
 
         for (child in children) {
@@ -86,16 +129,10 @@ class CodeServerManager(private val context: Context) {
 
             val subChildren = context.assets.list(childAssetPath)
             if (subChildren != null && subChildren.isNotEmpty()) {
-                // Directory: recurse
                 childDest.mkdirs()
                 extractRecursive(childAssetPath, childDest, onProgress)
             } else {
-                // File: copy
-                context.assets.open(childAssetPath).use { input ->
-                    childDest.outputStream().use { output ->
-                        input.copyTo(output)
-                    }
-                }
+                copyAssetFile(childAssetPath, childDest)
             }
         }
     }
