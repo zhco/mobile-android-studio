@@ -58,7 +58,7 @@ class CodeServerManager(private val context: Context) {
 
             // Verify critical files were extracted
             val missing = mutableListOf<String>()
-            if (!nodeBin.exists()) missing.add("bin/node")
+            if (!nodeExe.exists()) missing.add("lib/libnode_exec.so")
             if (!codeServerJs.exists()) missing.add("out/node/entry.js")
             
             if (missing.isNotEmpty()) {
