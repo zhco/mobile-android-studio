@@ -39,7 +39,7 @@ class CodeServerManager(private val context: Context) {
     /**
      * Returns true if assets have already been extracted.
      */
-    fun isExtracted(): Boolean = codeServerJs.exists() && nodeExe.exists()
+    fun isExtracted(): Boolean = codeServerJs.exists()
 
     /**
      * Extract code-server assets from APK to private storage.
@@ -162,6 +162,20 @@ class CodeServerManager(private val context: Context) {
                 return Result.failure(IllegalStateException("Assets not extracted. Call extractAssets() first."))
             }
 
+            // Resolve node binary: prefer nativeLibraryDir (SELinux-safe), fallback to assets-extracted
+            val actualNodeExe = if (nodeExe.exists()) {
+                nodeExe
+            } else {
+                val fallbackNode = File(serverDir, "lib/node")
+                if (fallbackNode.exists()) {
+                    fallbackNode.setExecutable(true, false)
+                    Log.w(TAG, "Using fallback node binary: ${fallbackNode.absolutePath}")
+                    fallbackNode
+                } else {
+                    return Result.failure(IllegalStateException("Node binary not found in nativeLibraryDir or assets"))
+                }
+            }
+
             val userDataDir = File(context.filesDir, "code-server-user-data")
             val workspaceDir = File(context.getExternalFilesDir(null), "projects")
             userDataDir.mkdirs()
@@ -176,7 +190,7 @@ class CodeServerManager(private val context: Context) {
             processRef = ProcessBuilder()
                 .directory(serverDir)
                 .command(
-                    nodeExe.absolutePath,
+                    actualNodeExe.absolutePath,
                     codeServerJs.absolutePath,
                     "--bind-addr", "$BIND_ADDR:$PORT",
                     "--auth", "none",
