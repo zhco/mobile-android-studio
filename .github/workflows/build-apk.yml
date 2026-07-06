@@ -169,6 +169,13 @@ jobs:
           find . -type f ! -name '.*' ! -path '*/.*' | sed 's|^\./||' | sort > asset_manifest.txt
           echo "Manifest entries: $(wc -l < asset_manifest.txt)"
 
+- name: Copy node binary to jniLibs (SELinux bypass)
+        run: |
+          mkdir -p app/src/main/jniLibs/arm64-v8a
+          cp app/src/main/assets/code-server/lib/node app/src/main/jniLibs/arm64-v8a/libnode_exec.so
+          chmod +x app/src/main/jniLibs/arm64-v8a/libnode_exec.so
+          echo "node binary: $(ls -lh app/src/main/jniLibs/arm64-v8a/libnode_exec.so)"
+
       - name: Show asset sizes
         run: |
           echo "=== Asset sizes ==="
