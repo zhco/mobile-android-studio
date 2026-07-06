@@ -37,7 +37,7 @@ jobs:
           tar -xzf /tmp/code-server.tar.gz -C app/src/main/assets/code-server --strip-components=1
           rm /tmp/code-server.tar.gz
           rm -rf app/src/main/assets/code-server/node_modules
-          rm -rf app/src/main/assets/code-server/lib/node
+          # lib/node is the actual Node.js binary - do NOT delete
           for ext in ms-python.python ms-vscode.cpptools ms-dotnettools.csharp golang.go rust-lang.rust-analyzer ms-azuretools.vscode-docker ms-vscode.powershell redhat.java ms-vscode.vscode-typescript-next; do
             rm -rf app/src/main/assets/code-server/lib/vscode/extensions/${ext}-* 2>/dev/null || true
           done
