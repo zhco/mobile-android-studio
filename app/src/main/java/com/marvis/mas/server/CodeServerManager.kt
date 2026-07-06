@@ -91,11 +91,15 @@ class CodeServerManager(private val context: Context) {
      * Uses context.assets.open() which always works regardless of compression.
      */
     private fun copyAssetFile(assetPath: String, dest: File) {
-        dest.parentFile?.mkdirs()
-        context.assets.open(assetPath).use { input ->
-            dest.outputStream().use { output ->
-                input.copyTo(output)
+        try {
+            dest.parentFile?.mkdirs()
+            context.assets.open(assetPath).use { input ->
+                dest.outputStream().use { output ->
+                    input.copyTo(output)
+                }
             }
+        } catch (e: Exception) {
+            Log.w(TAG, "Skip missing asset: $assetPath")
         }
     }
 
