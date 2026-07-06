@@ -110,7 +110,7 @@ class MainActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             // Step 1: Extract code-server assets
-            val extractResult = app.codeServerManager.extractAssets { msg ->
+            val extractResult = app.codeServerManager.extractAssets { msg: String ->
                 runOnUiThread { binding.statusText.text = msg }
             }
 
@@ -125,7 +125,7 @@ class MainActivity : AppCompatActivity() {
 
             // Step 2: Extract Android SDK
             binding.statusText.text = "Extracting SDK..."
-            val sdkResult = app.buildManager.extractSdk { msg ->
+            val sdkResult = app.buildManager.extractSdk { msg: String ->
                 runOnUiThread { binding.statusText.text = msg }
             }
 
@@ -137,7 +137,7 @@ class MainActivity : AppCompatActivity() {
 
             // Step 3: Start code-server
             binding.statusText.text = "Starting code-server..."
-            val startResult = app.codeServerManager.start { msg ->
+            val startResult = app.codeServerManager.start { msg: String ->
                 runOnUiThread {
                     binding.statusText.text = msg
                     if (msg.contains("ready")) {
