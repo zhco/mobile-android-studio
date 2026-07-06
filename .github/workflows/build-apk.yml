@@ -47,7 +47,6 @@ jobs:
           cp -r $ANDROID_HOME/build-tools/34.0.0/* app/src/main/assets/android-sdk/build-tools/34.0.0/
           mkdir -p app/src/main/assets/android-sdk/platforms/android-34
           cp -r $ANDROID_HOME/platforms/android-34/* app/src/main/assets/android-sdk/platforms/android-34/
-          echo "SDK size: $(du -sh app/src/main/assets/android-sdk | cut -f1)"
 
       - name: Replace build-tools with ARM64 versions
         run: |
@@ -58,9 +57,18 @@ jobs:
           cp -rf /tmp/arm64-tools/build-tools/* app/src/main/assets/android-sdk/build-tools/34.0.0/
           chmod -R +x app/src/main/assets/android-sdk/build-tools/34.0.0/
           rm -rf /tmp/arm64-tools.zip /tmp/arm64-tools
-          echo "Replaced build-tools with ARM64 versions:"
-          file app/src/main/assets/android-sdk/build-tools/34.0.0/aapt2
-          file app/src/main/assets/android-sdk/build-tools/34.0.0/zipalign
+
+      - name: Download OpenJDK 17 (ARM64) for Termux
+        run: |
+          mkdir -p app/src/main/assets/openjdk
+          curl -L --retry 5 --retry-delay 30 \
+            "https://mirrors.tuna.tsinghua.edu.cn/termux/apt/termux-main/pool/main/o/openjdk-17/openjdk-17_17.0.19_aarch64.deb" \
+            -o /tmp/jdk.deb
+          dpkg-deb -x /tmp/jdk.deb /tmp/jdk-extracted
+          cp -r /tmp/jdk-extracted/data/data/com.termux/files/usr/* app/src/main/assets/openjdk/
+          rm -rf /tmp/jdk.deb /tmp/jdk-extracted
+          echo "JDK size: $(du -sh app/src/main/assets/openjdk | cut -f1)"
+          ls app/src/main/assets/openjdk/bin/java && echo "JDK bundled OK"
 
       - name: Build debug APK
         run: ./gradlew assembleDebug --stacktrace
