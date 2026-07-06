@@ -39,7 +39,6 @@ jobs:
           rm -rf app/src/main/assets/code-server/node_modules app/src/main/assets/code-server/lib/node
           find app/src/main/assets/code-server -name "*.map" -delete
           find app/src/main/assets/code-server -name "*.ts" -delete
-          echo "code-server size: $(du -sh app/src/main/assets/code-server | cut -f1)"
 
       - name: Copy Android SDK assets
         run: |
@@ -65,10 +64,15 @@ jobs:
             "https://mirrors.tuna.tsinghua.edu.cn/termux/apt/termux-main/pool/main/o/openjdk-17/openjdk-17_17.0.19_aarch64.deb" \
             -o /tmp/jdk.deb
           dpkg-deb -x /tmp/jdk.deb /tmp/jdk-extracted
-          cp -r /tmp/jdk-extracted/data/data/com.termux/files/usr/* app/src/main/assets/openjdk/
+          # Find where java is and copy from the correct root
+          JDK_ROOT=$(dirname $(find /tmp/jdk-extracted -name java -type f | head -1))
+          JDK_ROOT=$(dirname "$JDK_ROOT")
+          echo "JDK root: $JDK_ROOT"
+          ls "$JDK_ROOT"
+          cp -r "$JDK_ROOT"/* app/src/main/assets/openjdk/
           rm -rf /tmp/jdk.deb /tmp/jdk-extracted
           echo "JDK size: $(du -sh app/src/main/assets/openjdk | cut -f1)"
-          ls app/src/main/assets/openjdk/bin/java && echo "JDK bundled OK"
+          file app/src/main/assets/openjdk/bin/java
 
       - name: Build debug APK
         run: ./gradlew assembleDebug --stacktrace
