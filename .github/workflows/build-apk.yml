@@ -191,6 +191,20 @@ jobs:
       - name: Build debug APK
         run: ./gradlew assembleDebug --stacktrace
 
+
+      - name: Create Release and Upload APK
+        if: success()
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.3.6
+          name: v0.3.6
+          body: |
+            ## Changes
+            - jniLibs 方案: node 二进制放入 libnode_exec.so，SELinux 兼容执行
+            - 修复 nodeBin 未定义引用
+          files: app/build/outputs/apk/debug/app-debug.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
