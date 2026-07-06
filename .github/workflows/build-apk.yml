@@ -20,11 +20,6 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          packages: 'platforms;android-35 build-tools;35.0.0 platforms;android-34 build-tools;34.0.0'
-
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
@@ -38,27 +33,27 @@ jobs:
           rm /tmp/code-server.tar.gz
           rm -rf app/src/main/assets/code-server/node_modules
           rm -rf app/src/main/assets/code-server/lib/node
-          rm -rf app/src/main/assets/code-server/lib/vscode/extensions/ms-python.python-*
-          rm -rf app/src/main/assets/code-server/lib/vscode/extensions/ms-vscode.cpptools-*
-          rm -rf app/src/main/assets/code-server/lib/vscode/extensions/ms-dotnettools.csharp-*
-          rm -rf app/src/main/assets/code-server/lib/vscode/extensions/golang.go-*
-          rm -rf app/src/main/assets/code-server/lib/vscode/extensions/rust-lang.rust-analyzer-*
+          # Remove non-essential extensions
+          for ext in ms-python.python ms-vscode.cpptools ms-dotnettools.csharp golang.go rust-lang.rust-analyzer ms-azuretools.vscode-docker ms-vscode.powershell redhat.java ms-vscode.vscode-typescript-next; do
+            rm -rf app/src/main/assets/code-server/lib/vscode/extensions/${ext}-* 2>/dev/null
+            rm -rf app/src/main/assets/code-server/lib/vscode/extensions/${ext}.* 2>/dev/null
+          done
           find app/src/main/assets/code-server -name "*.map" -delete
           find app/src/main/assets/code-server -name "*.ts" -delete
 
-      - name: Copy Android SDK assets
+      - name: Get Android SDK platform (android.jar only)
+        run: |
+          curl -L --retry 3 \
+            "https://dl.google.com/android/repository/platform-34_r03.zip" \
+            -o /tmp/platform.zip
+          unzip -qo /tmp/platform.zip -d /tmp/platform
+          mkdir -p app/src/main/assets/android-sdk/platforms/android-34
+          cp /tmp/platform/android-34/android.jar app/src/main/assets/android-sdk/platforms/android-34/
+          rm -rf /tmp/platform.zip /tmp/platform
+
+      - name: Download ARM64 build-tools only (skip x86_64)
         run: |
           mkdir -p app/src/main/assets/android-sdk/build-tools/34.0.0
-          cp -r $ANDROID_HOME/build-tools/34.0.0/* app/src/main/assets/android-sdk/build-tools/34.0.0/
-          mkdir -p app/src/main/assets/android-sdk/platforms/android-34
-          cp -r $ANDROID_HOME/platforms/android-34/* app/src/main/assets/android-sdk/platforms/android-34/
-          find app/src/main/assets/android-sdk/platforms/android-34/data/res -name "*.png" ! -path "*/drawable*" ! -path "*/mipmap*" -delete 2>/dev/null || true
-          rm -rf app/src/main/assets/android-sdk/platforms/android-34/data/fonts 2>/dev/null || true
-          rm -rf app/src/main/assets/android-sdk/platforms/android-34/templates 2>/dev/null || true
-          rm -rf app/src/main/assets/android-sdk/platforms/android-34/skins 2>/dev/null || true
-
-      - name: Replace build-tools with ARM64 versions
-        run: |
           curl -L --retry 5 --retry-delay 15 \
             "https://github.com/lzhiyong/android-sdk-tools/releases/download/34.0.3/android-sdk-tools-static-aarch64.zip" \
             -o /tmp/arm64-tools.zip
@@ -67,7 +62,7 @@ jobs:
           chmod -R +x app/src/main/assets/android-sdk/build-tools/34.0.0/
           rm -rf /tmp/arm64-tools.zip /tmp/arm64-tools
 
-      - name: Download and aggressively strip OpenJDK 17 (ARM64)
+      - name: Download and strip OpenJDK 17 (ARM64)
         run: |
           mkdir -p app/src/main/assets/openjdk
           curl -L --retry 5 --retry-delay 30 \
@@ -77,15 +72,12 @@ jobs:
           JDK_ROOT=$(dirname $(dirname $(find /tmp/jdk-extracted -name java ! -type d | head -1)))
           cp -r "$JDK_ROOT"/* app/src/main/assets/openjdk/
           rm -rf /tmp/jdk.deb /tmp/jdk-extracted
-          rm -rf app/src/main/assets/openjdk/jmods
-          rm -rf app/src/main/assets/openjdk/demo
-          rm -rf app/src/main/assets/openjdk/sample
-          rm -rf app/src/main/assets/openjdk/man
-          rm -rf app/src/main/assets/openjdk/include
+          # Aggressively strip
+          rm -rf app/src/main/assets/openjdk/jmods demo sample man include legal jmc
           rm -f app/src/main/assets/openjdk/lib/src.zip
-          rm -rf app/src/main/assets/openjdk/jmc
-          rm -rf app/src/main/assets/openjdk/legal
-          for tool in jshell jlink jdeps jstat jmap jstack jcmd jpackage javadoc jarsigner jdeprscan jfr jhsdb jps jconsole jwebserver keytool rmiregistry serialver; do
+          rm -f app/src/main/assets/openjdk/lib/ct.sym
+          # Keep only: java javac jar javap
+          for tool in jshell jlink jdeps jstat jmap jstack jcmd jpackage javadoc jarsigner jdeprscan jfr jhsdb jps jconsole jwebserver keytool rmiregistry serialver jmod; do
             rm -f app/src/main/assets/openjdk/bin/$tool
           done
 
@@ -123,7 +115,7 @@ jobs:
               echo "Fixed Gradle wrapper: $wrapper_props"
             fi
           done
-          echo "Done. All downloads now use Chinese mirrors."
+          echo "Done."
           SETUP
           chmod +x app/src/main/assets/gradle-config/setup-gradle-mirror.sh
 
