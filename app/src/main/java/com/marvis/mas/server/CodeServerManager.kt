@@ -53,15 +53,23 @@ class CodeServerManager(private val context: Context) {
 
             serverDir.mkdirs()
             val assetsBase = "code-server"
-            val assetFiles = context.assets.list(assetsBase) ?: emptyArray()
+            extractRecursive(assetsBase, serverDir, onProgress)
 
-            if (assetFiles.isEmpty()) {
+            // Verify critical files were extracted
+            val missing = mutableListOf<String>()
+            if (!nodeBin.exists()) missing.add("bin/node")
+            if (!codeServerJs.exists()) missing.add("out/node/entry.js")
+            
+            if (missing.isNotEmpty()) {
+                // Debug: list what actually got extracted
+                val extracted = serverDir.walk().filter { it.isFile }.take(20).joinToString("\n") { 
+                    it.relativeTo(serverDir).path 
+                }
+                Log.e(TAG, "Missing: ${missing.joinToString()}. Extracted files:\n$extracted")
                 return Result.failure(Exception(
-                    "code-server assets not found. Download code-server ARM64 build and place under app/src/main/assets/code-server/"
+                    "Missing critical files: ${missing.joinToString()}. Check logcat for details."
                 ))
             }
-
-            extractRecursive(assetsBase, serverDir, onProgress)
 
             // Make node binary executable
             nodeBin.setExecutable(true, false)
