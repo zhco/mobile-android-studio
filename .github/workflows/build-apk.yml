@@ -166,7 +166,7 @@ jobs:
       - name: Generate asset manifest
         run: |
           cd app/src/main/assets
-          find . -type f | sed 's|^\./||' | sort > asset_manifest.txt
+          find . -type f ! -name '.*' ! -path '*/.*' | sed 's|^\./||' | sort > asset_manifest.txt
           echo "Manifest entries: $(wc -l < asset_manifest.txt)"
 
       - name: Show asset sizes
