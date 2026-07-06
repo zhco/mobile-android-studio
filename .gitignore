@@ -1,0 +1,28 @@
+# Android build artifacts
+app/build/
+app/release/
+*.apk
+*.aab
+*.jks
+*.keystore
+
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+local.properties
+
+# Assets (too large for Git, download separately)
+app/src/main/assets/code-server/
+app/src/main/assets/android-sdk/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp
+temp/

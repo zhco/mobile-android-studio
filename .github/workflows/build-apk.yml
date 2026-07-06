@@ -1,0 +1,62 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platforms;android-35 build-tools;35.0.0'
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Inject placeholder assets
+        run: |
+          # Create minimal placeholder assets so the APK can build
+          # Real code-server + SDK assets must be added manually
+          mkdir -p app/src/main/assets/code-server/bin
+          mkdir -p app/src/main/assets/code-server/out/node
+          mkdir -p app/src/main/assets/android-sdk/build-tools/34.0.0
+          mkdir -p app/src/main/assets/android-sdk/platforms/android-34
+          echo "placeholder" > app/src/main/assets/code-server/bin/node
+          echo "placeholder" > app/src/main/assets/code-server/out/node/entry.js
+          echo "placeholder" > app/src/main/assets/android-sdk/build-tools/34.0.0/aapt2
+          echo "placeholder" > app/src/main/assets/android-sdk/build-tools/34.0.0/d8
+          echo "placeholder" > app/src/main/assets/android-sdk/build-tools/34.0.0/apksigner
+          echo "placeholder" > app/src/main/assets/android-sdk/build-tools/34.0.0/zipalign
+          echo "placeholder" > app/src/main/assets/android-sdk/platforms/android-34/android.jar
+
+      - name: Build debug APK
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-as-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 7
+
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: app/build/outputs/apk/debug/app-debug.apk
+          generate_release_notes: true

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.MAS" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="colorPrimary">#0078d4</item>
+        <item name="colorOnPrimary">#ffffff</item>
+        <item name="colorPrimaryContainer">#1e1e1e</item>
+        <item name="android:statusBarColor">#252526</item>
+        <item name="android:navigationBarColor">#1e1e1e</item>
+        <item name="android:windowBackground">#1e1e1e</item>
+    </style>
+</resources>
