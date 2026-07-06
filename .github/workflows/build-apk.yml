@@ -67,7 +67,6 @@ jobs:
           JDK_ROOT=$(dirname $(dirname $(find /tmp/jdk-extracted -name java ! -type d | head -1)))
           cp -r "$JDK_ROOT"/* app/src/main/assets/openjdk/
           rm -rf /tmp/jdk.deb /tmp/jdk-extracted
-          # Strip non-essential files
           rm -rf app/src/main/assets/openjdk/jmods
           rm -rf app/src/main/assets/openjdk/demo
           rm -rf app/src/main/assets/openjdk/sample
@@ -76,7 +75,36 @@ jobs:
           rm -f app/src/main/assets/openjdk/lib/src.zip
           rm -rf app/src/main/assets/openjdk/jmc
           rm -rf app/src/main/assets/openjdk/legal
-          echo "JDK stripped size: $(du -sh app/src/main/assets/openjdk | cut -f1)"
+
+      - name: Generate Gradle mirror config
+        run: |
+          mkdir -p app/src/main/assets/gradle-config
+          # init.gradle - mirrors Maven repos to Aliyun
+          cat > app/src/main/assets/gradle-config/init.gradle << 'INIT'
+          allprojects {
+              repositories {
+                  all { ArtifactRepository repo ->
+                      if (repo instanceof MavenArtifactRepository) {
+                          def url = repo.url.toString()
+                          if (url.startsWith('https://dl.google.com/dl/android/maven2') ||
+                              url.startsWith('https://maven.google.com')) {
+                              remove repo
+                              maven { url 'https://maven.aliyun.com/repository/google' }
+                          }
+                          if (url.startsWith('https://repo1.maven.org/maven2') ||
+                              url.startsWith('https://repo.maven.apache.org/maven2')) {
+                              remove repo
+                              maven { url 'https://maven.aliyun.com/repository/public' }
+                          }
+                          if (url.startsWith('https://jcenter.bintray.com')) {
+                              remove repo
+                              maven { url 'https://maven.aliyun.com/repository/jcenter' }
+                          }
+                      }
+                  }
+              }
+          }
+          INIT
 
       - name: Build debug APK
         run: ./gradlew assembleDebug --stacktrace
