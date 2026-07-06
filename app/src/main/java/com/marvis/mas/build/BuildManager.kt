@@ -61,9 +61,13 @@ class BuildManager(private val context: Context) {
             for (entry in files) {
                 val relPath = entry.removePrefix(prefix)
                 val dest = File(destDir, relPath)
-                dest.parentFile?.mkdirs()
-                context.assets.open(entry).use { input ->
-                    dest.outputStream().use { output -> input.copyTo(output) }
+                try {
+                    dest.parentFile?.mkdirs()
+                    context.assets.open(entry).use { input ->
+                        dest.outputStream().use { output -> input.copyTo(output) }
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Skip missing asset: $entry")
                 }
             }
             return
