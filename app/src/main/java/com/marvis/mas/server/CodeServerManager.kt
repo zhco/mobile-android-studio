@@ -71,8 +71,12 @@ class CodeServerManager(private val context: Context) {
                 ))
             }
 
-            // Make node binary executable
-            nodeBin.setExecutable(true, false)
+            // Make node binary executable (use shell chmod, more reliable)
+            try {
+                Runtime.getRuntime().exec(arrayOf("chmod", "+x", nodeBin.absolutePath)).waitFor()
+            } catch (_: Exception) {
+                nodeBin.setExecutable(true, false)
+            }
             onProgress("Assets extracted to ${serverDir.absolutePath}")
             Result.success(Unit)
         } catch (e: Exception) {
