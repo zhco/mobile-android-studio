@@ -23,7 +23,7 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
         with:
-          packages: 'platforms;android-35 build-tools;35.0.0'
+          packages: 'platforms;android-35 build-tools;35.0.0 platforms;android-34 build-tools;34.0.0'
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
@@ -41,21 +41,12 @@ jobs:
           find app/src/main/assets/code-server -name "*.ts" -delete
           echo "code-server size: $(du -sh app/src/main/assets/code-server | cut -f1)"
 
-      - name: Download Android SDK assets
+      - name: Copy Android SDK assets
         run: |
           mkdir -p app/src/main/assets/android-sdk/build-tools/34.0.0
-          curl -L --retry 3 --retry-delay 10 \
-            "https://dl.google.com/android/repository/build-tools_r34.0.0-linux.zip" \
-            -o /tmp/build-tools.zip
-          unzip -qo /tmp/build-tools.zip -d /tmp/bt-tmp
-          mv /tmp/bt-tmp/*/* app/src/main/assets/android-sdk/build-tools/34.0.0/ 2>/dev/null || true
-          rm -rf /tmp/build-tools.zip /tmp/bt-tmp
+          cp -r $ANDROID_HOME/build-tools/34.0.0/* app/src/main/assets/android-sdk/build-tools/34.0.0/
           mkdir -p app/src/main/assets/android-sdk/platforms/android-34
-          curl -L --retry 3 --retry-delay 10 \
-            "https://dl.google.com/android/repository/platform-34_r03.zip" \
-            -o /tmp/platform.zip
-          unzip -qo /tmp/platform.zip -d app/src/main/assets/android-sdk/platforms/android-34
-          rm /tmp/platform.zip
+          cp -r $ANDROID_HOME/platforms/android-34/* app/src/main/assets/android-sdk/platforms/android-34/
           echo "SDK size: $(du -sh app/src/main/assets/android-sdk | cut -f1)"
 
       - name: Build debug APK
