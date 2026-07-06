@@ -82,8 +82,10 @@ jobs:
         run: |
           mkdir -p app/src/main/assets/git
           curl -L --retry 5 --retry-delay 15 \
-            "https://mirrors.tuna.tsinghua.edu.cn/termux/apt/termux-main/pool/main/g/git/git_2.52.0_aarch64.deb" \
+            "https://mirrors.tuna.tsinghua.edu.cn/termux/apt/termux-main/pool/main/g/git/git_2.55.0_aarch64.deb" \
             -o /tmp/git.deb
+          ls -la /tmp/git.deb
+          file /tmp/git.deb
           dpkg-deb -x /tmp/git.deb /tmp/git-extracted
           for f in git git-receive-pack git-upload-pack git-upload-archive; do
             find /tmp/git-extracted -name "$f" ! -type d -exec cp {} app/src/main/assets/git/ \;
@@ -142,7 +144,6 @@ jobs:
             exit 1
           fi
           cd project
-          # Apply Gradle mirror fix
           for wp in $(find . -name "gradle-wrapper.properties" 2>/dev/null); do
             sed -i 's|https\\\{0,1\}://services\.gradle\.org/distributions|https\\://mirrors.tuna.tsinghua.edu.cn/gradle/gradle-distributions|g' "$wp"
           done
