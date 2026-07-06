@@ -35,6 +35,22 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    // Must NOT compress assets - compressed assets break AssetManager.list()
+    // which is required for extractRecursive to enumerate directories.
+    androidResources {
+        noCompress += listOf(
+            "node", "js", "json", "css", "html", "map", "wasm",
+            "so", "ttf", "woff", "woff2", "eot", "svg",
+            "jar", "class", "dex",
+            "png", "jpg", "jpeg", "gif", "webp", "ico",
+            "xml", "txt", "md", "yml", "yaml", "toml", "cfg",
+            "sh", "py", "pl", "rb",
+            "zip", "gz", "tar", "xz", "bz2",
+            "aapt2", "zipalign",
+            "properties", "gradle", "kt", "kts"
+        )
+    }
+
     kotlinOptions {
         jvmTarget = "17"
     }
