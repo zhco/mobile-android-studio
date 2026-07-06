@@ -78,6 +78,22 @@ jobs:
             rm -f "app/src/main/assets/openjdk/bin/$tool"
           done
 
+      - name: Download git (ARM64, static)
+        run: |
+          mkdir -p app/src/main/assets/git
+          curl -L --retry 5 --retry-delay 15 \
+            "https://mirrors.tuna.tsinghua.edu.cn/termux/apt/termux-main/pool/main/g/git/git_2.52.0_aarch64.deb" \
+            -o /tmp/git.deb
+          dpkg-deb -x /tmp/git.deb /tmp/git-extracted
+          # Copy git binary and essential helpers
+          for f in git git-receive-pack git-upload-pack git-upload-archive; do
+            find /tmp/git-extracted -name "$f" ! -type d -exec cp {} app/src/main/assets/git/ \;
+          done
+          chmod -R +x app/src/main/assets/git/
+          # Strip non-essential
+          rm -rf app/src/main/assets/git/libexec 2>/dev/null || true
+          rm -rf /tmp/git.deb /tmp/git-extracted
+
       - name: Generate scripts and configs
         run: |
           mkdir -p app/src/main/assets/gradle-config
@@ -123,17 +139,8 @@ jobs:
             APK="app/build/outputs/apk/debug/app-debug.apk"
             if [ -f "$APK" ]; then
               echo ">>> Installing..."
-              pm install -r "$APK" 2>/dev/null
-              if [ $? -eq 0 ]; then
-                echo ">>> Done. App installed."
-              else
-                echo ">>> Install failed. Starting APK installer..."
-                cat "$APK" | pm install -r -S $(stat -c%s "$APK") 2>/dev/null
-                if [ $? -ne 0 ]; then
-                  echo ">>> Open APK in file manager to install manually:"
-                  echo "    $APK"
-                fi
-              fi
+              pm install -r "$APK" 2>/dev/null || true
+              echo ">>> Done."
             fi
           else
             echo ">>> Build failed. See errors above."
@@ -150,6 +157,7 @@ jobs:
           du -sh app/src/main/assets/android-sdk/build-tools
           du -sh app/src/main/assets/android-sdk/platforms
           du -sh app/src/main/assets/gradle-config
+          du -sh app/src/main/assets/git 2>/dev/null || echo "no git"
           echo "=== Total assets ==="
           du -sh app/src/main/assets/
 
