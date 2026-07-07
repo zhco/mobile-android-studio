@@ -43,6 +43,16 @@ jobs:
           done
           find app/src/main/assets/code-server -name "*.map" -delete
           find app/src/main/assets/code-server -name "*.ts" -delete
+          # Strip translations/locales (keep en only)
+          rm -rf app/src/main/assets/code-server/lib/vscode/translations 2>/dev/null || true
+          rm -rf app/src/main/assets/code-server/lib/vscode/resources/app/extensions/*/i18n 2>/dev/null || true
+          rm -rf app/src/main/assets/code-server/lib/vscode/resources/app/out/nls.messages.json 2>/dev/null || true
+          # Remove built-in themes we don't need
+          rm -f app/src/main/assets/code-server/lib/vscode/resources/app/extensions/theme-*/** 2>/dev/null || true
+          # Remove cache
+          rm -rf app/src/main/assets/code-server/lib/vscode/resources/app/out/vs/platform/files/node/watcher/unix/chokidar/v8-compile-cache-* 2>/dev/null || true
+          # Remove benchmark tests
+          rm -rf app/src/main/assets/code-server/lib/vscode/resources/app/out/vs/base/test 2>/dev/null || true
 
       - name: Copy platform android.jar only
         run: |
@@ -71,9 +81,20 @@ jobs:
           JDK_ROOT=$(dirname $(dirname $(find /tmp/jdk-extracted -name java ! -type d | head -1)))
           cp -r "$JDK_ROOT"/* app/src/main/assets/openjdk/
           rm -rf /tmp/jdk.deb /tmp/jdk-extracted
-          rm -rf app/src/main/assets/openjdk/jmods demo sample man include legal jmc
+          rm -rf app/src/main/assets/openjdk/jmods demo sample man include legal jmc conf
           rm -f app/src/main/assets/openjdk/lib/src.zip
           rm -f app/src/main/assets/openjdk/lib/ct.sym
+          # Remove class data sharing archives (not needed for single app usage)
+          find app/src/main/assets/openjdk -name "*.jsa" -delete 2>/dev/null || true
+          # Remove unused security providers
+          rm -rf app/src/main/assets/openjdk/lib/security 2>/dev/null || true
+          # Remove accessibility and desktop modules
+          find app/src/main/assets/openjdk -name "libawt*" -delete 2>/dev/null || true
+          find app/src/main/assets/openjdk -name "libjsound*" -delete 2>/dev/null || true
+          find app/src/main/assets/openjdk -name "libsplashscreen*" -delete 2>/dev/null || true
+          find app/src/main/assets/openjdk -name "libjawt*" -delete 2>/dev/null || true
+          find app/src/main/assets/openjdk -name "libfreetype*" -delete 2>/dev/null || true
+          find app/src/main/assets/openjdk -name "libfontmanager*" -delete 2>/dev/null || true
           for tool in jshell jlink jdeps jstat jmap jstack jcmd jpackage javadoc jarsigner jdeprscan jfr jhsdb jps jconsole jwebserver keytool rmiregistry serialver jmod; do
             rm -f "app/src/main/assets/openjdk/bin/$tool"
           done
@@ -169,13 +190,7 @@ jobs:
           find . -type f ! -name '.*' ! -path '*/.*' | sed 's|^\./||' | sort > asset_manifest.txt
           echo "Manifest entries: $(wc -l < asset_manifest.txt)"
 
-      - name: Copy node binary to jniLibs (SELinux bypass)
-        run: |
-          mkdir -p app/src/main/jniLibs/arm64-v8a
-          cp app/src/main/assets/code-server/lib/node app/src/main/jniLibs/arm64-v8a/libnode_exec.so
-          chmod +x app/src/main/jniLibs/arm64-v8a/libnode_exec.so
-          # Convert ET_EXEC to ET_DYN (Android requires shared objects)
-          echo "node binary: $(ls -lh app/src/main/jniLibs/arm64-v8a/libnode_exec.so)"
+
 
       - name: Show asset sizes
         run: |
@@ -197,8 +212,8 @@ jobs:
         if: success()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.4.2
-          name: v0.4.2
+          tag_name: v0.4.3
+          name: v0.4.3
           body: |
             ## Changes
             - jniLibs 方案: node 二进制放入 libnode_exec.so，SELinux 兼容执行
