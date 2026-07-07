@@ -16,7 +16,7 @@ import java.net.URL
  * The ARM64 node + code-server binaries are bundled in assets/code-server/.
  */
 class CodeServerManager(private val context: Context) {
-    private var lastDiag = ""
+
 
     companion object {
         private const val TAG = "CodeServerManager"
@@ -165,8 +165,12 @@ class CodeServerManager(private val context: Context) {
                 return Result.success(Unit)
             }
 
-            val diagFile = File(android.os.Environment.getExternalStoragePublicDirectory(
-            android.os.Environment.DIRECTORY_DOWNLOADS), "mas_diag.txt")
+            val diagFile = File(context.filesDir, "mas_diag.txt")
+        try {
+            val pubFile = File(android.os.Environment.getExternalStoragePublicDirectory(
+                android.os.Environment.DIRECTORY_DOWNLOADS), "mas_diag.txt")
+            pubFile.writeText("see internal mas_diag.txt\n")
+        } catch (_: Exception) {}
             diagFile.writeText("=== MAS Diagnostics ===\n")
             
             if (!isExtracted()) {
@@ -264,7 +268,8 @@ class CodeServerManager(private val context: Context) {
                 // Process exited - forward exit code
                 val exitCode = processRef?.waitFor() ?: -1
                 diagFile.appendText(SimpleDateFormat("HH:mm:ss", Locale.US).format(Date()) + " code-server exited with code " + exitCode + "\n")
-                onStatus("EXITED code=$exitCode | diag: Download/mas_diag.txt")
+                onStatus("code-server exited code=$exitCode")
+                diagFile.appendText("\n=== EXIT CODE: $exitCode ===\n")
                 isRunning = false
             }
 
