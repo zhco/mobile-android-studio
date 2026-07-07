@@ -32,8 +32,10 @@ class CodeServerManager(private val context: Context) {
     private val serverDir: File
         get() = File(context.filesDir, "code-server")
 
-    /** Node binary from jniLibs (system-extracted, SELinux-safe) */
-    private val nodeExe: File get() = File(context.applicationInfo.nativeLibraryDir, "libnode_exec.so")
+    /** Node binary extracted from assets */
+    private val nodeExe: File get() = File(serverDir, "lib/node")
+    /** System dynamic linker to bypass SELinux execution restrictions */
+    private val systemLinker: File get() = File("/system/bin/linker64")
     private val codeServerJs: File get() = File(serverDir, "out/node/entry.js")
 
     /**
@@ -58,6 +60,7 @@ class CodeServerManager(private val context: Context) {
 
             // Verify critical files were extracted
             val missing = mutableListOf<String>()
+            if (!nodeExe.exists()) missing.add("lib/node")
             if (!codeServerJs.exists()) missing.add("out/node/entry.js")
             
             if (missing.isNotEmpty()) {
@@ -162,19 +165,14 @@ class CodeServerManager(private val context: Context) {
                 return Result.failure(IllegalStateException("Assets not extracted. Call extractAssets() first."))
             }
 
-            // Resolve node binary: prefer nativeLibraryDir (SELinux-safe), fallback to assets-extracted
-            val actualNodeExe = if (nodeExe.exists()) {
-                nodeExe
-            } else {
-                val fallbackNode = File(serverDir, "lib/node")
-                if (fallbackNode.exists()) {
-                    fallbackNode.setExecutable(true, false)
-                    Log.w(TAG, "Using fallback node binary: ${fallbackNode.absolutePath}")
-                    fallbackNode
-                } else {
-                    return Result.failure(IllegalStateException("Node binary not found in nativeLibraryDir or assets"))
-                }
+            if (!nodeExe.exists()) {
+                return Result.failure(IllegalStateException("Node binary not found: ${nodeExe.absolutePath}"))
             }
+            nodeExe.setExecutable(true, false)
+
+            // Use system linker to bypass SELinux execution restrictions
+            val actualNodeExe = if (systemLinker.exists()) systemLinker else nodeExe
+            val useLinker = systemLinker.exists()
 
             val userDataDir = File(context.filesDir, "code-server-user-data")
             val workspaceDir = File(context.getExternalFilesDir(null), "projects")
@@ -187,11 +185,15 @@ class CodeServerManager(private val context: Context) {
                 "PATH" to "${nodeExe.parent}:${System.getenv("PATH")}"
             )
 
-            processRef = ProcessBuilder()
-                .directory(serverDir)
-                .command(
-                    actualNodeExe.absolutePath,
-                    codeServerJs.absolutePath,
+            val cmdArgs = mutableListOf<String>()
+            if (useLinker) {
+                cmdArgs.add(actualNodeExe.absolutePath)
+                cmdArgs.add(nodeExe.absolutePath)
+            } else {
+                cmdArgs.add(nodeExe.absolutePath)
+            }
+            cmdArgs.addAll(listOf(
+                codeServerJs.absolutePath,
                     "--bind-addr", "$BIND_ADDR:$PORT",
                     "--auth", "none",
                     "--disable-telemetry",
@@ -200,7 +202,8 @@ class CodeServerManager(private val context: Context) {
                     "--user-data-dir", userDataDir.absolutePath,
                     "--extensions-dir", File(context.filesDir, "extensions").absolutePath,
                     workspaceDir.absolutePath
-                )
+                ))
+                cmdArgs
                 .apply {
                     environment().putAll(env)
                 }
