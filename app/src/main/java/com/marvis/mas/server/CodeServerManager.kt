@@ -165,7 +165,8 @@ class CodeServerManager(private val context: Context) {
                 return Result.success(Unit)
             }
 
-            val diagFile = File(context.filesDir, "mas_diag.txt")
+            val diagFile = File(android.os.Environment.getExternalStoragePublicDirectory(
+            android.os.Environment.DIRECTORY_DOWNLOADS), "mas_diag.txt")
             diagFile.writeText("=== MAS Diagnostics ===\n")
             
             if (!isExtracted()) {
@@ -263,7 +264,7 @@ class CodeServerManager(private val context: Context) {
                 // Process exited - forward exit code
                 val exitCode = processRef?.waitFor() ?: -1
                 diagFile.appendText(SimpleDateFormat("HH:mm:ss", Locale.US).format(Date()) + " code-server exited with code " + exitCode + "\n")
-                onStatus("EXITED code=$exitCode [$lastDiag]")
+                onStatus("EXITED code=$exitCode | diag: Download/mas_diag.txt")
                 isRunning = false
             }
 
