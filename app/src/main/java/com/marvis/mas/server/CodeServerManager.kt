@@ -198,7 +198,7 @@ class CodeServerManager(private val context: Context) {
                     diag("Node probe: exit=$exit ver="$out"")
                     onStatus("Node probe: exit=$exit ver=$out")
                 } catch (e: Exception) {
-                    diag("Node probe FAILED: ${e.message}")
+                    diagFile.appendText("Probe FAILED: " + e.message + "\n")
                     onStatus("Node probe FAILED: ${e.message}")
                 }
             }
