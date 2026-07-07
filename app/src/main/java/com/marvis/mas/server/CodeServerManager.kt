@@ -4,6 +4,9 @@ import android.content.Context
 import android.util.Log
 import kotlinx.coroutines.*
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
@@ -161,17 +164,9 @@ class CodeServerManager(private val context: Context) {
                 return Result.success(Unit)
             }
 
-            val diagFile = java.io.File(context.filesDir, "mas_diag.txt")
-            diagFile.writeText("=== MAS Diagnostics ===
-")
-            fun diag(msg: String) {
-                Log.d(TAG, msg)
-                diagFile.appendText("${java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US).format(java.util.Date())} $msg
-")
-            }
-            diag("Node: ${nodeExe.absolutePath} exists=${nodeExe.exists()} size=${nodeExe.length()}")
-            diag("Linker64: ${systemLinker.absolutePath} exists=${systemLinker.exists()}")
-
+            val diagFile = File(context.filesDir, "mas_diag.txt")
+            diagFile.writeText("=== MAS Diagnostics ===\n")
+            
             if (!isExtracted()) {
                 return Result.failure(IllegalStateException("Assets not extracted. Call extractAssets() first."))
             }
@@ -180,6 +175,9 @@ class CodeServerManager(private val context: Context) {
                 return Result.failure(IllegalStateException("Node binary not found: ${nodeExe.absolutePath}"))
             }
             nodeExe.setExecutable(true, false)
+            val now = SimpleDateFormat("HH:mm:ss", Locale.US).format(Date())
+            diagFile.appendText(now + " Node: " + nodeExe.absolutePath + " exists=" + nodeExe.exists() + "\n")
+            diagFile.appendText(now + " Linker64: " + systemLinker.absolutePath + " exists=" + systemLinker.exists() + "\n")
 
             // Use system linker to bypass SELinux execution restrictions
             val useLinker = systemLinker.exists()
@@ -243,7 +241,7 @@ class CodeServerManager(private val context: Context) {
                 .start()
 
             isRunning = true
-            diag("Cmd: ${cmdArgs.take(3).joinToString(" ")} ...")
+            diagFile.appendText(SimpleDateFormat("HH:mm:ss", Locale.US).format(Date()) + " Cmd: " + cmdArgs.joinToString(" ") + "\n")
             onStatus("code-server starting... | diag: mas_diag.txt")
 
             // Forward process output to logcat and onStatus
@@ -263,7 +261,7 @@ class CodeServerManager(private val context: Context) {
                 }
                 // Process exited - forward exit code
                 val exitCode = processRef?.waitFor() ?: -1
-                diag("code-server exited with code $exitCode")
+                diagFile.appendText(SimpleDateFormat("HH:mm:ss", Locale.US).format(Date()) + " code-server exited with code " + exitCode + "\n")
                 onStatus("code-server exited code=$exitCode | diag: mas_diag.txt")
                 isRunning = false
             }
@@ -278,7 +276,7 @@ class CodeServerManager(private val context: Context) {
                         return@launch
                     }
                 }
-                diag("code-server start timeout after ${MAX_STARTUP_RETRIES}s")
+                diagFile.appendText(SimpleDateFormat("HH:mm:ss", Locale.US).format(Date()) + " code-server start timeout after " + MAX_STARTUP_RETRIES + "s\n")
                 onStatus("code-server start timeout after ${MAX_STARTUP_RETRIES}s")
             }
 
