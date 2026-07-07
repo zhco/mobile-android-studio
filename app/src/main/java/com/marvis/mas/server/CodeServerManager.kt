@@ -262,7 +262,7 @@ class CodeServerManager(private val context: Context) {
                 // Process exited - forward exit code
                 val exitCode = processRef?.waitFor() ?: -1
                 diagFile.appendText(SimpleDateFormat("HH:mm:ss", Locale.US).format(Date()) + " code-server exited with code " + exitCode + "\n")
-                onStatus("code-server exited code=$exitCode | diag: mas_diag.txt")
+                onStatus("EXITED code=$exitCode | diag: mas_diag.txt")
                 isRunning = false
             }
 
