@@ -195,7 +195,7 @@ class CodeServerManager(private val context: Context) {
                     val p = probe.start()
                     val out = p.inputStream.bufferedReader().readText().trim()
                     val exit = p.waitFor()
-                    diag("Node probe: exit=$exit ver="$out"")
+
                     onStatus("Node probe: exit=$exit ver=$out")
                 } catch (e: Exception) {
                     diagFile.appendText("Probe FAILED: " + e.message + "\n")
