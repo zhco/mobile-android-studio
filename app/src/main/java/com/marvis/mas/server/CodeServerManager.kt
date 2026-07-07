@@ -18,7 +18,7 @@ class CodeServerManager(private val context: Context) {
         private const val TAG = "CodeServerManager"
         private const val PORT = 18080
         private const val BIND_ADDR = "127.0.0.1"
-        private const val MAX_STARTUP_RETRIES = 30
+        private const val MAX_STARTUP_RETRIES = 60
         private const val RETRY_DELAY_MS = 1000L
     }
 
@@ -210,9 +210,9 @@ class CodeServerManager(private val context: Context) {
                 .start()
 
             isRunning = true
-            onStatus("code-server starting...")
+            onStatus("code-server starting via linker64...")
 
-            // Monitor output in background
+            // Forward process output to logcat and onStatus
             scope.launch {
                 processRef?.inputStream?.bufferedReader()?.use { reader ->
                     reader.lines().forEach { line ->
@@ -220,14 +220,24 @@ class CodeServerManager(private val context: Context) {
                         if (line.contains("HTTP server listening")) {
                             onStatus("code-server ready on $url")
                         }
+                        // Forward errors/warnings to status for debugging
+                        if (line.contains("Error") || line.contains("error") || 
+                            line.contains("WARN") || line.contains("FATAL")) {
+                            Log.e(TAG, line)
+                        }
                     }
                 }
+                // Process exited - forward exit code
+                val exitCode = processRef?.waitFor() ?: -1
+                onStatus("code-server process exited with code $exitCode")
+                isRunning = false
             }
 
             // Wait for server to be actually ready
             scope.launch {
                 for (i in 1..MAX_STARTUP_RETRIES) {
                     delay(RETRY_DELAY_MS)
+                    if (!isRunning) return@launch
                     if (isHttpReady()) {
                         onStatus("code-server ready on $url")
                         return@launch
