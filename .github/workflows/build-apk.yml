@@ -197,8 +197,8 @@ jobs:
         if: success()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.4.0
-          name: v0.4.0
+          tag_name: v0.4.1
+          name: v0.4.1
           body: |
             ## Changes
             - jniLibs 方案: node 二进制放入 libnode_exec.so，SELinux 兼容执行
