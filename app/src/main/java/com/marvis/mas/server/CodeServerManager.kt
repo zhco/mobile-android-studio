@@ -181,7 +181,8 @@ class CodeServerManager(private val context: Context) {
             val env = mapOf(
                 "HOME" to context.filesDir.absolutePath,
                 "USER" to "mas",
-                "PATH" to "${nodeExe.parent}:${System.getenv("PATH")}"
+                "PATH" to "${nodeExe.parent}:${System.getenv("PATH")}",
+                "LD_LIBRARY_PATH" to nodeExe.parent
             )
 
             val cmdArgs = mutableListOf<String>()
