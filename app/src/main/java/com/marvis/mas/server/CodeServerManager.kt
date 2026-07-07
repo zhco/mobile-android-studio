@@ -230,7 +230,8 @@ class CodeServerManager(private val context: Context) {
                 }
                 // Process exited - forward exit code
                 val exitCode = processRef?.waitFor() ?: -1
-                onStatus("code-server process exited with code $exitCode")
+                logDiag("code-server exited with code $exitCode", diagFile)
+                onStatus("code-server exited code=$exitCode | diag: mas_diag.txt")
                 isRunning = false
             }
 
@@ -244,6 +245,7 @@ class CodeServerManager(private val context: Context) {
                         return@launch
                     }
                 }
+                logDiag("code-server start timeout after ${MAX_STARTUP_RETRIES}s", diagFile)
                 onStatus("code-server start timeout after ${MAX_STARTUP_RETRIES}s")
             }
 
