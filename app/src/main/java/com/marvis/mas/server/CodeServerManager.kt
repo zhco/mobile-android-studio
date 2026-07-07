@@ -161,6 +161,17 @@ class CodeServerManager(private val context: Context) {
                 return Result.success(Unit)
             }
 
+            val diagFile = java.io.File(context.filesDir, "mas_diag.txt")
+            diagFile.writeText("=== MAS Diagnostics ===
+")
+            fun diag(msg: String) {
+                Log.d(TAG, msg)
+                diagFile.appendText("${java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US).format(java.util.Date())} $msg
+")
+            }
+            diag("Node: ${nodeExe.absolutePath} exists=${nodeExe.exists()} size=${nodeExe.length()}")
+            diag("Linker64: ${systemLinker.absolutePath} exists=${systemLinker.exists()}")
+
             if (!isExtracted()) {
                 return Result.failure(IllegalStateException("Assets not extracted. Call extractAssets() first."))
             }
@@ -172,6 +183,27 @@ class CodeServerManager(private val context: Context) {
 
             // Use system linker to bypass SELinux execution restrictions
             val useLinker = systemLinker.exists()
+            if (useLinker) {
+                try {
+                    val probe = ProcessBuilder(listOf(
+                        systemLinker.absolutePath,
+                        nodeExe.absolutePath,
+                        "--version"
+                    ))
+                    .directory(serverDir)
+                    .redirectErrorStream(true)
+                    probe.environment().put("LD_LIBRARY_PATH", nodeExe.parent)
+                    probe.environment().put("HOME", context.filesDir.absolutePath)
+                    val p = probe.start()
+                    val out = p.inputStream.bufferedReader().readText().trim()
+                    val exit = p.waitFor()
+                    diag("Node probe: exit=$exit ver="$out"")
+                    onStatus("Node probe: exit=$exit ver=$out")
+                } catch (e: Exception) {
+                    diag("Node probe FAILED: ${e.message}")
+                    onStatus("Node probe FAILED: ${e.message}")
+                }
+            }
 
             val userDataDir = File(context.filesDir, "code-server-user-data")
             val workspaceDir = File(context.getExternalFilesDir(null), "projects")
@@ -211,7 +243,8 @@ class CodeServerManager(private val context: Context) {
                 .start()
 
             isRunning = true
-            onStatus("code-server starting via linker64...")
+            diag("Cmd: ${cmdArgs.take(3).joinToString(" ")} ...")
+            onStatus("code-server starting... | diag: mas_diag.txt")
 
             // Forward process output to logcat and onStatus
             scope.launch {
@@ -230,7 +263,7 @@ class CodeServerManager(private val context: Context) {
                 }
                 // Process exited - forward exit code
                 val exitCode = processRef?.waitFor() ?: -1
-                logDiag("code-server exited with code $exitCode", diagFile)
+                diag("code-server exited with code $exitCode")
                 onStatus("code-server exited code=$exitCode | diag: mas_diag.txt")
                 isRunning = false
             }
@@ -245,7 +278,7 @@ class CodeServerManager(private val context: Context) {
                         return@launch
                     }
                 }
-                logDiag("code-server start timeout after ${MAX_STARTUP_RETRIES}s", diagFile)
+                diag("code-server start timeout after ${MAX_STARTUP_RETRIES}s")
                 onStatus("code-server start timeout after ${MAX_STARTUP_RETRIES}s")
             }
 
