@@ -175,8 +175,6 @@ jobs:
           cp app/src/main/assets/code-server/lib/node app/src/main/jniLibs/arm64-v8a/libnode_exec.so
           chmod +x app/src/main/jniLibs/arm64-v8a/libnode_exec.so
           # Convert ET_EXEC to ET_DYN (Android requires shared objects)
-          printf '' | dd of=app/src/main/jniLibs/arm64-v8a/libnode_exec.so bs=1 seek=16 count=1 conv=notrunc 2>/dev/null
-          echo "ELF type: $(od -An -tx1 -j16 -N2 app/src/main/jniLibs/arm64-v8a/libnode_exec.so)"
           echo "node binary: $(ls -lh app/src/main/jniLibs/arm64-v8a/libnode_exec.so)"
 
       - name: Show asset sizes
