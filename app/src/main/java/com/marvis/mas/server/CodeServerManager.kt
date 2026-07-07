@@ -171,7 +171,6 @@ class CodeServerManager(private val context: Context) {
             nodeExe.setExecutable(true, false)
 
             // Use system linker to bypass SELinux execution restrictions
-            val actualNodeExe = if (systemLinker.exists()) systemLinker else nodeExe
             val useLinker = systemLinker.exists()
 
             val userDataDir = File(context.filesDir, "code-server-user-data")
@@ -187,26 +186,26 @@ class CodeServerManager(private val context: Context) {
 
             val cmdArgs = mutableListOf<String>()
             if (useLinker) {
-                cmdArgs.add(actualNodeExe.absolutePath)
+                cmdArgs.add(systemLinker.absolutePath)
                 cmdArgs.add(nodeExe.absolutePath)
             } else {
                 cmdArgs.add(nodeExe.absolutePath)
             }
             cmdArgs.addAll(listOf(
                 codeServerJs.absolutePath,
-                    "--bind-addr", "$BIND_ADDR:$PORT",
-                    "--auth", "none",
-                    "--disable-telemetry",
-                    "--disable-update-check",
-                    "--disable-getting-started-override",
-                    "--user-data-dir", userDataDir.absolutePath,
-                    "--extensions-dir", File(context.filesDir, "extensions").absolutePath,
-                    workspaceDir.absolutePath
-                ))
-                cmdArgs
-                .apply {
-                    environment().putAll(env)
-                }
+                "--bind-addr", "$BIND_ADDR:$PORT",
+                "--auth", "none",
+                "--disable-telemetry",
+                "--disable-update-check",
+                "--disable-getting-started-override",
+                "--user-data-dir", userDataDir.absolutePath,
+                "--extensions-dir", File(context.filesDir, "extensions").absolutePath,
+                workspaceDir.absolutePath
+            ))
+
+            processRef = ProcessBuilder(cmdArgs)
+                .directory(serverDir)
+                .apply { environment().putAll(env) }
                 .redirectErrorStream(true)
                 .start()
 
