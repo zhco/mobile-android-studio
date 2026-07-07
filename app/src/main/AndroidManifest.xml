@@ -11,7 +11,7 @@
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application
-        android:extractNativeLibs="true"
+       
         android:name=".MASApplication"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
