@@ -54,6 +54,17 @@ jobs:
           # Remove benchmark tests
           rm -rf app/src/main/assets/code-server/lib/vscode/resources/app/out/vs/base/test 2>/dev/null || true
 
+            - name: Replace node with PIE binary (ARM64)
+        run: |
+          NODE_VERSION="20.18.1"
+          curl -L --retry 3 --retry-delay 10             "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-arm64.tar.xz"             -o /tmp/node.tar.xz
+          tar -xJf /tmp/node.tar.xz -C /tmp
+          # Copy the PIE node binary, overwriting code-server's non-PIE one
+          cp "/tmp/node-v${NODE_VERSION}-linux-arm64/bin/node" app/src/main/assets/code-server/lib/node
+          # Verify it's PIE (ET_DYN = 3)
+          file app/src/main/assets/code-server/lib/node
+          rm -rf /tmp/node-v${NODE_VERSION}-linux-arm64 /tmp/node.tar.xz
+
       - name: Copy platform android.jar only
         run: |
           mkdir -p app/src/main/assets/android-sdk/platforms/android-34
