@@ -188,24 +188,58 @@ class CodeServerManager(private val context: Context) {
             val useLinker = systemLinker.exists()
             if (useLinker) {
                 try {
+                    // Probe: run code-server through Node with timeout
+                    val probeJs = """
+                        |var cp = require('child_process');
+                        |var args = process.argv.slice(2);
+                        |var child = cp.spawn(args[0], args.slice(1), {
+                        |  stdio: ['ignore', 'pipe', 'pipe'],
+                        |  env: Object.assign({}, process.env, {LD_LIBRARY_PATH: '""" + nodeExe.parent.replace("'", "\'") + """', HOME: '""" + context.filesDir.absolutePath.replace("'", "\'") + """'})
+                        |});
+                        |var out = '', err = '';
+                        |child.stdout.on('data', function(d) { out += d; });
+                        |child.stderr.on('data', function(d) { err += d; });
+                        |child.on('close', function(code) {
+                        |  console.log('EXIT:' + code);
+                        |  console.log('STDOUT:' + out.slice(0, 1000));
+                        |  console.log('STDERR:' + err.slice(0, 1000));
+                        |});
+                        |setTimeout(function() {
+                        |  console.log('TIMEOUT');
+                        |  child.kill();
+                        |}, 10000);
+                        |""".trimMargin()
                     val probe = ProcessBuilder(listOf(
-                        systemLinker.absolutePath,
-                        nodeExe.absolutePath,
-                        "--version"
+                        systemLinker.absolutePath, nodeExe.absolutePath, "-e", probeJs,
+                        systemLinker.absolutePath, nodeExe.absolutePath, codeServerJs.absolutePath,
+                        "--help"
                     ))
-                    .directory(serverDir)
-                    .redirectErrorStream(true)
+                    .directory(serverDir).redirectErrorStream(true)
                     probe.environment().put("LD_LIBRARY_PATH", nodeExe.parent)
                     probe.environment().put("HOME", context.filesDir.absolutePath)
                     val p = probe.start()
-                    val out = p.inputStream.bufferedReader().readText().trim()
-                    val exit = p.waitFor()
-
-                    onStatus("Node probe: exit=$exit ver=$out")
+                    // Read with timeout (10s)
+                    p.inputStream.use { input ->
+                        val buf = ByteArray(4096)
+                        val start = System.currentTimeMillis()
+                        val sb = StringBuilder()
+                        while (System.currentTimeMillis() - start < 10000) {
+                            val avail = input.available()
+                            if (avail > 0) {
+                                val n = input.read(buf, 0, minOf(avail, buf.size))
+                                if (n < 0) break
+                                sb.append(String(buf, 0, n))
+                            } else if (!p.isAlive) break
+                            else Thread.sleep(100)
+                        }
+                        val out = sb.toString().trim()
+                        val exit = if (p.isAlive) { p.destroyForcibly(); -99 } else p.exitValue()
+                        diagFile.appendText("Probe exit=" + exit + " out=" + out.take(500) + "\n")
+                        File(context.filesDir, "mas_diag.txt").appendText("Probe exit=" + exit + " out=" + out.take(500) + "\n")
+                    }
                 } catch (e: Exception) {
-                    diagFile.appendText("Probe FAILED: " + e.message + "\n")
-                    File(context.filesDir, "mas_diag.txt").appendText("Probe FAILED: " + e.message + "\n")
-                    onStatus("Node probe FAILED: ${e.message}")
+                    diagFile.appendText("Probe ERR: " + e.message + "\n")
+                    File(context.filesDir, "mas_diag.txt").appendText("Probe ERR: " + e.message + "\n")
                 }
             }
 
