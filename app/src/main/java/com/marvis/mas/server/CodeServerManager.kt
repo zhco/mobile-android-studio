@@ -234,8 +234,8 @@ class CodeServerManager(private val context: Context) {
                         }
                         val out = sb.toString().trim()
                         val exit = if (p.isAlive) { p.destroyForcibly(); -99 } else p.exitValue()
-                        diagFile.appendText("Probe exit=" + exit + " out=" + out.take(500) + "\n")
-                        File(context.filesDir, "mas_diag.txt").appendText("Probe exit=" + exit + " out=" + out.take(500) + "\n")
+                        diagFile.appendText("Probe exit=" + exit + " out=" + out.take(3000) + "\n")
+                        File(context.filesDir, "mas_diag.txt").appendText("Probe exit=" + exit + " out=" + out.take(3000) + "\n")
                     }
                 } catch (e: Exception) {
                     diagFile.appendText("Probe ERR: " + e.message + "\n")
@@ -304,7 +304,7 @@ class CodeServerManager(private val context: Context) {
                 val exitCode = processRef?.waitFor() ?: -1
                 diagFile.appendText(SimpleDateFormat("HH:mm:ss", Locale.US).format(Date()) + " code-server exited with code " + exitCode + "\n")
                     File(context.filesDir, "mas_diag.txt").appendText(SimpleDateFormat("HH:mm:ss", Locale.US).format(Date()) + " code-server exited with code " + exitCode + "\n")
-                val summary = diagFile.readText().replace("\n", " | ").take(200)
+                val summary = diagFile.readText().replace("\n", " | ").take(400)
                 onStatus("EXITED code=$exitCode: $summary")
                 isRunning = false
             }
