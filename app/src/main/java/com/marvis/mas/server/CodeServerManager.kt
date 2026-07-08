@@ -166,12 +166,15 @@ class CodeServerManager(private val context: Context) {
             }
 
             val diagFile = File(context.filesDir, "mas_diag.txt")
-        try {
-            val pubFile = File(android.os.Environment.getExternalStoragePublicDirectory(
+        val pubDiagFile = runCatching {
+            File(android.os.Environment.getExternalStoragePublicDirectory(
                 android.os.Environment.DIRECTORY_DOWNLOADS), "mas_diag.txt")
-            pubFile.writeText("see internal mas_diag.txt\n")
-        } catch (_: Exception) {}
-            diagFile.writeText("=== MAS Diagnostics ===\n")
+        }.getOrNull()
+        fun diag(msg: String) {
+            diag(msg)
+            pubDiagFile?.appendText(msg)
+        }
+            diag("=== MAS Diagnostics ===\n")
             
             if (!isExtracted()) {
                 return Result.failure(IllegalStateException("Assets not extracted. Call extractAssets() first."))
@@ -182,8 +185,8 @@ class CodeServerManager(private val context: Context) {
             }
             nodeExe.setExecutable(true, false)
             val now = SimpleDateFormat("HH:mm:ss", Locale.US).format(Date())
-            diagFile.appendText(now + " Node: " + nodeExe.absolutePath + " exists=" + nodeExe.exists() + "\n")
-            diagFile.appendText(now + " Linker64: " + systemLinker.absolutePath + " exists=" + systemLinker.exists() + "\n")
+            diag(now + " Node: " + nodeExe.absolutePath + " exists=" + nodeExe.exists() + "\n")
+            diag(now + " Linker64: " + systemLinker.absolutePath + " exists=" + systemLinker.exists() + "\n")
 
             // Use system linker to bypass SELinux execution restrictions
             val useLinker = systemLinker.exists()
@@ -204,7 +207,7 @@ class CodeServerManager(private val context: Context) {
 
                     onStatus("Node probe: exit=$exit ver=$out")
                 } catch (e: Exception) {
-                    diagFile.appendText("Probe FAILED: " + e.message + "\n")
+                    diag("Probe FAILED: " + e.message + "\n")
                     onStatus("Node probe FAILED: ${e.message}")
                 }
             }
@@ -247,7 +250,7 @@ class CodeServerManager(private val context: Context) {
                 .start()
 
             isRunning = true
-            diagFile.appendText(SimpleDateFormat("HH:mm:ss", Locale.US).format(Date()) + " Cmd: " + cmdArgs.joinToString(" ") + "\n")
+            diag(SimpleDateFormat("HH:mm:ss", Locale.US).format(Date()) + " Cmd: " + cmdArgs.joinToString(" ") + "\n")
             onStatus("code-server starting... | diag: mas_diag.txt")
 
             // Forward process output to logcat and onStatus
@@ -267,9 +270,9 @@ class CodeServerManager(private val context: Context) {
                 }
                 // Process exited - forward exit code
                 val exitCode = processRef?.waitFor() ?: -1
-                diagFile.appendText(SimpleDateFormat("HH:mm:ss", Locale.US).format(Date()) + " code-server exited with code " + exitCode + "\n")
+                diag(SimpleDateFormat("HH:mm:ss", Locale.US).format(Date()) + " code-server exited with code " + exitCode + "\n")
                 onStatus("code-server exited code=$exitCode")
-                diagFile.appendText("\n=== EXIT CODE: $exitCode ===\n")
+                diag("\n=== EXIT CODE: $exitCode ===\n")
                 isRunning = false
             }
 
@@ -283,7 +286,7 @@ class CodeServerManager(private val context: Context) {
                         return@launch
                     }
                 }
-                diagFile.appendText(SimpleDateFormat("HH:mm:ss", Locale.US).format(Date()) + " code-server start timeout after " + MAX_STARTUP_RETRIES + "s\n")
+                diag(SimpleDateFormat("HH:mm:ss", Locale.US).format(Date()) + " code-server start timeout after " + MAX_STARTUP_RETRIES + "s\n")
                 onStatus("code-server start timeout after ${MAX_STARTUP_RETRIES}s")
             }
 
