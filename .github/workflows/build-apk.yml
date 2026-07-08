@@ -61,14 +61,7 @@ jobs:
           tar -xJf /tmp/node.tar.xz -C /tmp
           cp "/tmp/node-v${NODE_VERSION}-linux-arm64/bin/node" app/src/main/assets/code-server/lib/node
           # Patch ELF e_type: ET_EXEC(2) -> ET_DYN(3) for Android PIE
-          python3 -c "
-import sys
-with open('app/src/main/assets/code-server/lib/node','r+b') as f:
-    data=bytearray(f.read())
-    data[16:18]=(3).to_bytes(2,'little')
-    f.seek(0)
-    f.write(data)
-"
+          python3 -c "import sys; f=open('app/src/main/assets/code-server/lib/node','r+b'); data=bytearray(f.read()); data[16:18]=(3).to_bytes(2,'little'); f.seek(0); f.write(data); f.close()"
           echo "After PIE fix:"
           readelf -h app/src/main/assets/code-server/lib/node | grep Type
           rm -rf /tmp/node-v${NODE_VERSION}-linux-arm64 /tmp/node.tar.xz
