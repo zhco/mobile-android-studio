@@ -56,13 +56,21 @@ jobs:
 
       - name: Replace node with PIE binary (ARM64)
         run: |
-          NODE_VERSION="20.18.1"
+          NODE_VERSION="24.5.0"
           curl -L --retry 3 --retry-delay 10             "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-arm64.tar.xz"             -o /tmp/node.tar.xz
           tar -xJf /tmp/node.tar.xz -C /tmp
-          # Copy the PIE node binary, overwriting code-server's non-PIE one
           cp "/tmp/node-v${NODE_VERSION}-linux-arm64/bin/node" app/src/main/assets/code-server/lib/node
-          # Verify it's PIE (ET_DYN = 3)
-          file app/src/main/assets/code-server/lib/node
+          # Patch ELF e_type: ET_EXEC(2) -> ET_DYN(3) for Android PIE
+          python3 -c "
+import sys
+with open('app/src/main/assets/code-server/lib/node','r+b') as f:
+    data=bytearray(f.read())
+    data[16:18]=(3).to_bytes(2,'little')
+    f.seek(0)
+    f.write(data)
+"
+          echo "After PIE fix:"
+          readelf -h app/src/main/assets/code-server/lib/node | grep Type
           rm -rf /tmp/node-v${NODE_VERSION}-linux-arm64 /tmp/node.tar.xz
 
       - name: Copy platform android.jar only
