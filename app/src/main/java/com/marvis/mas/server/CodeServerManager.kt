@@ -270,7 +270,8 @@ class CodeServerManager(private val context: Context) {
                 val exitCode = processRef?.waitFor() ?: -1
                 diagFile.appendText(SimpleDateFormat("HH:mm:ss", Locale.US).format(Date()) + " code-server exited with code " + exitCode + "\n")
                     File(context.filesDir, "mas_diag.txt").appendText(SimpleDateFormat("HH:mm:ss", Locale.US).format(Date()) + " code-server exited with code " + exitCode + "\n")
-                onStatus("EXITED code=$exitCode | diag: Download/mas_diag.txt")
+                val summary = diagFile.readText().replace("\n", " | ").take(200)
+                onStatus("EXITED code=$exitCode: $summary")
                 isRunning = false
             }
 
