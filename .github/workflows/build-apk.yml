@@ -82,8 +82,13 @@ jobs:
             cd /tmp && rm -rf /tmp/extract_$$
           done
           ls -la /tmp/termux_out/
+          # Verify Termux node is DYN/PIE before copying
+          file /tmp/termux_out/node
+          readelf -h /tmp/termux_out/node | grep -q 'Type:.*DYN' || { echo "FATAL: Termux deb did not yield a DYN node!"; exit 1; }
           # Replace code-server's node with Termux node
-          mkdir -p app/src/main/assets/code-server/lib && cp /tmp/termux_out/node app/src/main/assets/code-server/lib/node
+          mkdir -p app/src/main/assets/code-server/lib
+          rm -f app/src/main/assets/code-server/lib/node
+          cp -v /tmp/termux_out/node app/src/main/assets/code-server/lib/node
           # Copy needed .so files alongside node
           for so in libz.so.1 libcares.so libsqlite3.so libcrypto.so.3 libssl.so.3 libicui18n.so.78 libicuuc.so.78 libc++_shared.so; do
             if [ -f "/tmp/termux_out/$so" ]; then
@@ -94,11 +99,13 @@ jobs:
           sudo apt-get install -y patchelf 2>/dev/null || true
           patchelf --set-rpath '$ORIGIN' app/src/main/assets/code-server/lib/node 2>/dev/null ||             curl -L https://github.com/NixOS/patchelf/releases/download/0.18.0/patchelf-0.18.0-x86_64.tar.gz | tar xz -C /tmp
           /tmp/bin/patchelf --set-rpath '$ORIGIN' app/src/main/assets/code-server/lib/node 2>/dev/null || true
-          # Verify
+          # Verify (fail build if not DYN/PIE)
           echo "=== Node PIE check ==="
-          readelf -h app/src/main/assets/code-server/lib/node | grep Type
+          TYPE=$(readelf -h app/src/main/assets/code-server/lib/node | grep Type)
+          echo "$TYPE"
+          echo "$TYPE" | grep -q DYN || { echo "FATAL: node is not DYN/PIE!"; exit 1; }
           echo "=== TLS check ==="
-          readelf -l app/src/main/assets/code-server/lib/node | grep TLS || echo "No TLS segment (good!)"
+          readelf -l app/src/main/assets/code-server/lib/node | grep TLS && { echo "FATAL: TLS segment present!"; exit 1; } || echo "No TLS segment (good!)"
           echo "=== NEEDED libs ==="
           readelf -d app/src/main/assets/code-server/lib/node | grep NEEDED
           # Cleanup
@@ -262,8 +269,8 @@ jobs:
         if: success()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.4.24
-          name: v0.4.21
+          tag_name: v0.4.25
+          name: v0.4.25
           body: |
             ## Changes
             - jniLibs 方案: node 二进制放入 libnode_exec.so，SELinux 兼容执行
