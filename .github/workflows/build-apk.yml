@@ -54,17 +54,55 @@ jobs:
           # Remove benchmark tests
           rm -rf app/src/main/assets/code-server/lib/vscode/resources/app/out/vs/base/test 2>/dev/null || true
 
-      - name: Replace node with PIE binary (ARM64)
+      - name: Use Termux node (Bionic PIE, no TLS issues)
         run: |
-          NODE_VERSION="24.5.0"
-          curl -L --retry 3 --retry-delay 10             "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-arm64.tar.xz"             -o /tmp/node.tar.xz
-          tar -xJf /tmp/node.tar.xz -C /tmp
-          cp "/tmp/node-v${NODE_VERSION}-linux-arm64/bin/node" app/src/main/assets/code-server/lib/node
-          # Patch ELF e_type: ET_EXEC(2) -> ET_DYN(3) for Android PIE
-          python3 -c "import struct; f=open('app/src/main/assets/code-server/lib/node','r+b'); d=bytearray(f.read()); d[16:18]=(3).to_bytes(2,'little'); phoff=struct.unpack_from('<Q',d,32)[0]; phentsize=struct.unpack_from('<H',d,54)[0]; phnum=struct.unpack_from('<H',d,56)[0]; shoff=struct.unpack_from('<Q',d,40)[0]; shentsize=struct.unpack_from('<H',d,58)[0]; shnum=struct.unpack_from('<H',d,60)[0]; [struct.pack_into('<Q',d,phoff+i*phentsize+48,64) for i in range(phnum) if struct.unpack_from('<I',d,phoff+i*phentsize)[0]==7]; shstrndx_off=shoff+struct.unpack_from('<H',d,62)[0]*shentsize; shstrtab=struct.unpack_from('<Q',d,shstrndx_off+24)[0]; [struct.pack_into('<Q',d,shoff+i*shentsize+48,64) for i in range(shnum) if d[shstrtab+struct.unpack_from('<I',d,shoff+i*shentsize)[0]:].split(b'\x00')[0] in (b'.tdata',b'.tbss')]; f.seek(0); f.write(d); f.close()"
-          echo "After PIE fix:"
+          TERMUX_REPO="https://packages.termux.dev/apt/termux-main"
+          DEBS="nodejs-lts_24.17.0_aarch64.deb zlib_1.3.2_aarch64.deb c-ares_1.34.8_aarch64.deb libsqlite_3.53.3_aarch64.deb openssl_1%3a3.6.3_aarch64.deb libicu_78.3_aarch64.deb libc++_29_aarch64.deb"
+          for deb in $DEBS; do
+            pkg=$(echo $deb | cut -d_ -f1)
+            case $pkg in
+              nodejs-lts)   curl -L --retry 3 "$TERMUX_REPO/pool/main/n/nodejs-lts/$deb" -o /tmp/$deb ;;
+              zlib)         curl -L --retry 3 "$TERMUX_REPO/pool/main/z/zlib/$deb" -o /tmp/$deb ;;
+              c-ares)       curl -L --retry 3 "$TERMUX_REPO/pool/main/c/c-ares/$deb" -o /tmp/$deb ;;
+              libsqlite)    curl -L --retry 3 "$TERMUX_REPO/pool/main/libs/libsqlite/$deb" -o /tmp/$deb ;;
+              openssl)      curl -L --retry 3 "$TERMUX_REPO/pool/main/o/openssl/$deb" -o /tmp/$deb ;;
+              libicu)       curl -L --retry 3 "$TERMUX_REPO/pool/main/libi/libicu/$deb" -o /tmp/$deb ;;
+              libc++)       curl -L --retry 3 "$TERMUX_REPO/pool/main/libc/libc++/$deb" -o /tmp/$deb ;;
+            esac
+          done
+          # Extract node and all .so files
+          mkdir -p /tmp/termux_out
+          for deb in /tmp/*_aarch64.deb; do
+            mkdir -p /tmp/extract_$$ && cd /tmp/extract_$$ && ar x "$deb"
+            tar xf data.tar.* 2>/dev/null || tar xf data.tar.xz 2>/dev/null || tar xf data.tar.gz 2>/dev/null
+            # Copy node binary
+            find . -name node -type f -exec cp {} /tmp/termux_out/ \; 2>/dev/null
+            # Copy all .so files
+            find . -name "*.so*" -type f -exec cp {} /tmp/termux_out/ \; 2>/dev/null
+            cd /tmp && rm -rf /tmp/extract_$$
+          done
+          ls -la /tmp/termux_out/
+          # Replace code-server's node with Termux node
+          cp /tmp/termux_out/node app/src/main/assets/code-server/lib/node
+          # Copy needed .so files alongside node
+          for so in libz.so.1 libcares.so libsqlite3.so libcrypto.so.3 libssl.so.3 libicui18n.so.78 libicuuc.so.78 libc++_shared.so; do
+            if [ -f "/tmp/termux_out/$so" ]; then
+              cp "/tmp/termux_out/$so" app/src/main/assets/code-server/lib/
+            fi
+          done
+          # Set RPATH so linker finds .so files in same directory
+          sudo apt-get install -y patchelf 2>/dev/null || true
+          patchelf --set-rpath '$ORIGIN' app/src/main/assets/code-server/lib/node 2>/dev/null ||             curl -L https://github.com/NixOS/patchelf/releases/download/0.18.0/patchelf-0.18.0-x86_64.tar.gz | tar xz -C /tmp
+          /tmp/bin/patchelf --set-rpath '$ORIGIN' app/src/main/assets/code-server/lib/node 2>/dev/null || true
+          # Verify
+          echo "=== Node PIE check ==="
           readelf -h app/src/main/assets/code-server/lib/node | grep Type
-          rm -rf /tmp/node-v${NODE_VERSION}-linux-arm64 /tmp/node.tar.xz
+          echo "=== TLS check ==="
+          readelf -l app/src/main/assets/code-server/lib/node | grep TLS || echo "No TLS segment (good!)"
+          echo "=== NEEDED libs ==="
+          readelf -d app/src/main/assets/code-server/lib/node | grep NEEDED
+          # Cleanup
+          rm -rf /tmp/termux_out /tmp/*_aarch64.deb
 
       - name: Copy platform android.jar only
         run: |
@@ -224,7 +262,7 @@ jobs:
         if: success()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.4.23
+          tag_name: v0.4.24
           name: v0.4.21
           body: |
             ## Changes
