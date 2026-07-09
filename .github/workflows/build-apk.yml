@@ -83,7 +83,7 @@ jobs:
           done
           ls -la /tmp/termux_out/
           # Replace code-server's node with Termux node
-          cp /tmp/termux_out/node app/src/main/assets/code-server/lib/node
+          mkdir -p app/src/main/assets/code-server/lib && cp /tmp/termux_out/node app/src/main/assets/code-server/lib/node
           # Copy needed .so files alongside node
           for so in libz.so.1 libcares.so libsqlite3.so libcrypto.so.3 libssl.so.3 libicui18n.so.78 libicuuc.so.78 libc++_shared.so; do
             if [ -f "/tmp/termux_out/$so" ]; then
